@@ -115,7 +115,7 @@ function View({ app }: { app: Detail }) {
         </div>
 
         <div className="space-y-5">
-          <DecisionPanel app={app} canDecide={role === 'LOAN_OFFICER'} />
+          <DecisionPanel app={app} canDecide={role === 'LOAN_OFFICER' || role === 'ADMIN'} />
           <Card title="Financial snapshot"><Financials app={app} /></Card>
         </div>
       </div>

@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm, useWatch, type FieldPath } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { Button, Card, Field, Input, PageHeader, Select } from '../components/ui'
 import { toApiError } from '../lib/api'
@@ -55,6 +55,7 @@ const schema = z.object({
     bankMonths: int(1, 60),
     includeGstCertificate: z.boolean(),
   }),
+  consent: z.boolean().refine((v) => v, 'tick the box to continue'),
 })
 type FormIn = z.input<typeof schema>
 type FormOut = z.output<typeof schema>
@@ -64,7 +65,7 @@ const STEPS: { title: string; fields: FieldPath<FormIn>[] }[] = [
   { title: 'Loan', fields: ['loan'] },
   { title: 'Financials', fields: ['financials'] },
   { title: 'Documents', fields: ['documents'] },
-  { title: 'Review', fields: [] },
+  { title: 'Review', fields: ['consent'] },
 ]
 
 const MONTHS = (() => {
@@ -91,6 +92,7 @@ export function ApplyPage() {
       business: { sector: 'MANUFACTURING', stateCode: '36', udyamNumber: '', businessStartDate: '' },
       loan: { purpose: 'WORKING_CAPITAL', tenureMonths: 24 },
       documents: { includeGstCertificate: true, bankMonths: 12 },
+      consent: false,
     },
   })
   const { register, formState, trigger, control, reset, getValues } = form
@@ -119,7 +121,7 @@ export function ApplyPage() {
       { type: 'BANK_STATEMENT', documentNumber: v.documents.bankStatementRef.toUpperCase(), monthsCovered: v.documents.bankMonths },
       ...(v.documents.includeGstCertificate ? [{ type: 'GST_CERTIFICATE', documentNumber: v.business.gstin }] : []),
     ]
-    const body = { business: v.business, loan: v.loan, financials: v.financials, documents: docs }
+    const body = { business: v.business, loan: v.loan, financials: v.financials, documents: docs, consent: v.consent }
     const result = await submit.mutateAsync(body).catch(() => null)
     if (result) navigate(`/applicant/dashboard?focus=${result.id}`)
   })
@@ -273,7 +275,20 @@ export function ApplyPage() {
             </div>
           )}
 
-          {step === 4 && <Review v={values} />}
+          {step === 4 && (
+            <>
+              <Review v={values} />
+              <label className="mt-4 flex items-start gap-2 rounded bg-paper-deep p-3 text-sm">
+                <input type="checkbox" className="mt-0.5 size-4 accent-ink" {...register('consent')} aria-invalid={!!e.consent} />
+                <span>
+                  I understand this is a <strong>research demo</strong> with a simulated model, I have <strong>not</strong> entered real personal or
+                  business identifiers, and I consent to CreditSense storing what I submit. I can delete it at any time with "Delete my data".{' '}
+                  <Link to="/privacy" target="_blank" className="underline">Privacy notice</Link>
+                </span>
+              </label>
+              {e.consent && <p role="alert" className="mt-1 text-xs text-risk-deep">{e.consent.message}</p>}
+            </>
+          )}
 
           {apiError && (
             <div role="alert" className="mt-4 rounded bg-risk/10 p-3 text-sm text-risk-deep">

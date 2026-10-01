@@ -20,6 +20,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN:?set ML_SERVICE_TOKEN in .env}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      # Google sign-in: with PASSWORD_LOGIN_ENABLED=false (the prod default) it is the only way in.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      OFFICER_EMAILS: ${OFFICER_EMAILS:-}
+      PASSWORD_LOGIN_ENABLED: ${PASSWORD_LOGIN_ENABLED:-false}
       CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env, e.g. https://credit.example.in}
       # The refresh cookie is sent over HTTPS only; false is for a plain-HTTP trial run, never for real use.
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}

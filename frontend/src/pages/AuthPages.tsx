@@ -3,9 +3,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { GoogleButton } from '../components/GoogleButton'
 import { Brand } from '../components/Layout'
-import { Button, Field, Input } from '../components/ui'
+import { ResearchNotice } from '../components/Notice'
+import { Button, Field, Input, Loading } from '../components/ui'
 import { api, toApiError } from '../lib/api'
+import { useAuthOptions } from '../lib/options'
 import type { TokenResponse } from '../lib/types'
 import { homeFor, useAuth } from '../store/auth'
 
@@ -23,7 +26,10 @@ function AuthFrame({ title, children }: { title: string; children: React.ReactNo
             that add up to the decision, so lenders can justify it and applicants can understand it.
           </p>
         </div>
-        <LedgerMotif />
+        <div className="space-y-4">
+          <ResearchNotice />
+          <LedgerMotif />
+        </div>
       </aside>
       <main className="flex items-center justify-center bg-panel p-6">
         <div className="w-full max-w-sm rounded-md bg-paper p-6 text-ink">
@@ -65,16 +71,40 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation() as { state?: { from?: string } }
   const [error, setError] = useState<string | null>(null)
+  const options = useAuthOptions()
   const { register, handleSubmit, setValue, formState } = useForm<z.infer<typeof loginSchema>>({ resolver: zodResolver(loginSchema) })
 
   if (user) return <Navigate to={homeFor(user.role)} replace />
 
+  const goHome = (data: TokenResponse) => {
+    setSession(data)
+    navigate(location.state?.from ?? homeFor(data.user.role), { replace: true })
+  }
+  const onGoogle = async (credential: string) => {
+    setError(null)
+    try {
+      goHome((await api.post<TokenResponse>('/auth/google', { credential })).data)
+    } catch (e) {
+      setError(toApiError(e).message)
+    }
+  }
+
+  if (options.isPending) {
+    return (
+      <AuthFrame title="Server waking up">
+        <Loading label="Starting the demo server" />
+        <p className="mt-3 text-sm text-muted">
+          The free demo server sleeps when nobody is using it. This can take a few minutes the first time; this page continues by itself.
+        </p>
+      </AuthFrame>
+    )
+  }
+  const { googleClientId, passwordLogin } = options.data!
+
   const onSubmit = handleSubmit(async (values) => {
     setError(null)
     try {
-      const { data } = await api.post<TokenResponse>('/auth/login', values)
-      setSession(data)
-      navigate(location.state?.from ?? homeFor(data.user.role), { replace: true })
+      goHome((await api.post<TokenResponse>('/auth/login', values)).data)
     } catch (e) {
       setError(toApiError(e).message)
     }
@@ -82,6 +112,13 @@ export function LoginPage() {
 
   return (
     <AuthFrame title="Sign in">
+      {googleClientId ? (
+        <GoogleButton clientId={googleClientId} onCredential={onGoogle} onError={setError} />
+      ) : (
+        !passwordLogin && <p className="text-sm text-risk-deep">Sign-in is not configured on this server.</p>
+      )}
+      {googleClientId && passwordLogin && <p className="my-4 text-center text-xs text-muted">or use a local account</p>}
+      {passwordLogin && (
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <Field label="Email" htmlFor="email" error={formState.errors.email?.message}>
           <Input id="email" type="email" autoComplete="username" {...register('email')} aria-invalid={!!formState.errors.email} />
@@ -89,12 +126,19 @@ export function LoginPage() {
         <Field label="Password" htmlFor="password" error={formState.errors.password?.message}>
           <Input id="password" type="password" autoComplete="current-password" {...register('password')} aria-invalid={!!formState.errors.password} />
         </Field>
-        {error && <p role="alert" className="rounded bg-risk/10 px-3 py-2 text-sm text-risk-deep">{error}</p>}
         <Button type="submit" className="w-full" busy={formState.isSubmitting}>Sign in</Button>
       </form>
+      )}
+      {error && <p role="alert" className="mt-4 rounded bg-risk/10 px-3 py-2 text-sm text-risk-deep">{error}</p>}
+      {passwordLogin && (
       <p className="mt-4 text-sm text-muted">
         New business? <Link to="/register" className="font-medium text-ink underline">Create an account</Link>
       </p>
+      )}
+      <p className="mt-4 text-xs text-muted">
+        By signing in you accept the <Link to="/privacy" className="underline">privacy notice</Link>. This is a research demo: use made-up business details.
+      </p>
+      {passwordLogin && (
       <div className="mt-6 border-t border-paper-rule pt-4">
         <p className="text-xs font-medium tracking-wide text-muted uppercase">Demo accounts (password Demo@1234)</p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -113,6 +157,7 @@ export function LoginPage() {
           ))}
         </div>
       </div>
+      )}
     </AuthFrame>
   )
 }
@@ -131,8 +176,10 @@ export function RegisterPage() {
   const { user, setSession } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+  const options = useAuthOptions()
   const { register, handleSubmit, formState } = useForm<z.infer<typeof registerSchema>>({ resolver: zodResolver(registerSchema) })
   if (user) return <Navigate to={homeFor(user.role)} replace />
+  if (options.data && !options.data.passwordLogin) return <Navigate to="/login" replace /> // Google is the only way in
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null)

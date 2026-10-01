@@ -1,8 +1,9 @@
 import clsx from 'clsx'
-import { FilePlus2, Gauge, Inbox, LayoutDashboard, LogOut, ScrollText } from 'lucide-react'
+import { FilePlus2, Gauge, Inbox, LayoutDashboard, LogOut, ScrollText, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, toApiError } from '../lib/api'
+import { ResearchNotice } from './Notice'
 import type { Role } from '../lib/types'
 import { homeFor, useAuth } from '../store/auth'
 
@@ -40,6 +41,16 @@ export function AppShell() {
   const { user, clear } = useAuth()
   const navigate = useNavigate()
   if (!user) return null
+  const erase = async () => {
+    if (!window.confirm('Delete your account and every application you submitted? This cannot be undone.')) return
+    try {
+      await api.delete('/auth/me')
+      clear()
+      navigate('/login')
+    } catch (e) {
+      window.alert(toApiError(e).message)
+    }
+  }
   const logout = async () => {
     await api.post('/auth/logout').catch(() => undefined) // revokes the token and clears the cookie
     clear()
@@ -78,6 +89,12 @@ export function AppShell() {
             <br />
             <span className="text-[9px] tracking-wider uppercase">{ROLE_SHORT[user.role]}</span>
           </p>
+          {user.role === 'APPLICANT' && (
+            <button onClick={erase} className="flex w-full flex-col items-center gap-1 rounded px-2 py-2 text-[11px] text-fog hover:bg-panel hover:text-paper">
+              <Trash2 className="size-5" aria-hidden />
+              Delete my data
+            </button>
+          )}
           <button onClick={logout} className="flex w-full flex-col items-center gap-1 rounded px-2 py-2 text-[11px] text-fog hover:bg-panel hover:text-paper">
             <LogOut className="size-5" aria-hidden />
             Sign out
@@ -85,6 +102,7 @@ export function AppShell() {
         </div>
       </nav>
       <main id="main" className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8">
+        <ResearchNotice className="mb-5" />
         <Outlet />
       </main>
     </div>

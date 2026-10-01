@@ -7,6 +7,7 @@ import { ApplyPage } from './pages/ApplyPage'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import { OfficerApplication } from './pages/OfficerApplication'
 import { OfficerQueue } from './pages/OfficerQueue'
+import { PrivacyPage } from './pages/PrivacyPage'
 import { homeFor, useAuth } from './store/auth'
 
 // Admin views pull in the charting library; load them only when an admin opens them.
@@ -19,6 +20,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route element={<RequireRole roles={['APPLICANT', 'LOAN_OFFICER', 'ADMIN']}><AppShell /></RequireRole>}>
         <Route path="/applicant/apply" element={<RequireRole roles={['APPLICANT']}><ApplyPage /></RequireRole>} />
         <Route path="/applicant/dashboard" element={<RequireRole roles={['APPLICANT']}><ApplicantDashboard /></RequireRole>} />
