@@ -1,0 +1,60 @@
+# Render Blueprint: the Java API and the ML service, both on the free plan.
+# Render dashboard -> New -> Blueprint -> pick this repo. Fill in the values marked "sync: false" when asked.
+# The website itself is deployed on Vercel (frontend/vercel.json); the database is on Supabase. See DEPLOY.md.
+services:
+  - type: web
+    name: creditsense-ml
+    runtime: docker
+    plan: free
+    dockerfilePath: ./ml-service/Dockerfile
+    dockerContext: ./ml-service
+    healthCheckPath: /health
+    envVars:
+      - key: ML_SERVICE_TOKEN
+        generateValue: true
+
+  - type: web
+    name: creditsense-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health/liveness
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Supabase "session pooler" connection, see DEPLOY.md step 1
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_POOL_SIZE
+        value: "3"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ML_BASE_URL
+        value: https://creditsense-ml.onrender.com
+      - key: ML_SERVICE_TOKEN
+        fromService:
+          type: web
+          name: creditsense-ml
+          envVarKey: ML_SERVICE_TOKEN
+      # Sign in with Google; only the listed Gmail addresses get staff roles
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: ADMIN_EMAILS
+        value: siddhusiddhu1712@gmail.com
+      - key: OFFICER_EMAILS
+        value: ""
+      # The Vercel site's address, e.g. https://creditsense.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: SEED_DEMO_DATA
+        value: "false"
+      # Free-tier sizing: 512 MB of memory and a slow, shared CPU
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx300m -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1
+      - key: RESILIENCE4J_TIMELIMITER_INSTANCES_MLSERVICE_TIMEOUT_DURATION
+        value: 20s
