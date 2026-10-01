@@ -1,0 +1,45 @@
+# Render Blueprint: creates the Java API and the ML service on the free plan.
+# Dashboard -> New -> Blueprint -> pick this repo. Fill the "sync: false" values when asked.
+services:
+  - type: web
+    name: creditsense-ml
+    runtime: docker
+    plan: free
+    dockerfilePath: ./ml-service/Dockerfile
+    dockerContext: ./ml-service
+    healthCheckPath: /health
+    envVars:
+      - key: ML_API_KEY
+        generateValue: true
+
+  - type: web
+    name: creditsense-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/auth/options
+    envVars:
+      - key: SPRING_DATASOURCE_URL     # Supabase session-pooler JDBC URL, see DEPLOY.md
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: ADMIN_EMAILS
+        value: siddhusiddhu1712@gmail.com
+      - key: OFFICER_EMAILS            # optional, comma-separated Gmail addresses
+        value: ""
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ML_API_KEY
+        fromService:
+          type: web
+          name: creditsense-ml
+          envVarKey: ML_API_KEY
+      - key: ML_SERVICE_URL
+        value: https://creditsense-ml.onrender.com
+      - key: DB_POOL_SIZE
+        value: "3"
