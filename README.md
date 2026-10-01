@@ -9,6 +9,8 @@ never shown to anyone. Loan officers decide, with a mandatory reason when they o
 watch the portfolio and the model's live performance and run the champion/challenger retraining loop. Every
 state change is written to an append-only audit trail.
 
+Want it online? [DEPLOY.md](DEPLOY.md) covers Google sign-in, Supabase, Render and Vercel.
+
 ## Quick start
 
 You need **Git** and **Docker Desktop** (Windows or macOS) or Docker Engine with the Compose plugin (Linux).
