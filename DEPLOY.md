@@ -69,7 +69,17 @@ the security headers, including the exceptions Google's button needs.
 3. Submit an application with made-up values. You should see the compliance checks, the risk band and the per-factor explanation straight away.
 4. Try **Delete my data** with that second account.
 
+## 6. Automatic check
+
+`./scripts/smoke-test.sh https://your-site.vercel.app` (Git Bash, WSL or any Linux/macOS shell) confirms the site loads, the API answers
+through it, Google sign-in is configured, demo login is refused, and the security headers are present. It waits up to five minutes
+for a sleeping server.
+
 ## Notes
+
+- Sizing was checked: the API in the `prod` profile with the memory settings from `render.yaml` ran in a 512 MB / 0.5 CPU container
+  at about 320 MB and became healthy in under a minute; the ML service uses about 200 MB. Render's free CPU is slower, so the first
+  start after sleeping takes minutes, not seconds.
 
 - Free Render has no disk: the model is trained into the image at build time, and retraining results are lost on restart.
 - The ML service is public but needs `ML_SERVICE_TOKEN`, which Render generates and shares with the API.

@@ -7,6 +7,7 @@ import com.creditsense.domain.Role;
 import com.creditsense.domain.User;
 import com.creditsense.repo.UserRepository;
 import com.creditsense.risk.TestPredictions;
+import com.creditsense.security.GoogleTokenVerifier;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -72,6 +74,8 @@ class ApplicationFlowIntegrationTest {
     static void props(DynamicPropertyRegistry r) {
         r.add("creditsense.ml.base-url", () -> ML.url("/").toString());
         r.add("creditsense.jwt.secret", () -> "integration-test-secret-at-least-32-bytes!");
+        r.add("creditsense.access.admin-emails", () -> "Owner.Admin@gmail.com");
+        r.add("creditsense.access.officer-emails", () -> "officer.g@gmail.com");
     }
 
     @AfterAll
@@ -79,6 +83,8 @@ class ApplicationFlowIntegrationTest {
         ML.shutdown();
     }
 
+    /** Google's real verification is covered by GoogleTokenVerifierTest; here the verified identity is stubbed. */
+    @MockitoBean GoogleTokenVerifier google;
     @Autowired TestRestTemplate http;
     @Autowired UserRepository users;
     @Autowired PasswordEncoder encoder;
@@ -320,6 +326,34 @@ class ApplicationFlowIntegrationTest {
         assertThat(call(HttpMethod.DELETE, "/api/auth/me", officer, null, Map.class).getStatusCode())
                 .isIn(HttpStatus.BAD_REQUEST, HttpStatus.FORBIDDEN);
         assertThat(users.findByEmailIgnoreCase("officer@it.test")).isPresent();
+    }
+
+    @Test
+    void googleSignInGivesRolesFromTheConfiguredEmailListsAndSetsTheRefreshCookie() {
+        org.mockito.Mockito.when(google.verify("admin-token")).thenReturn(new GoogleTokenVerifier.Identity("owner.admin@gmail.com", "Owner"));
+        org.mockito.Mockito.when(google.verify("officer-token")).thenReturn(new GoogleTokenVerifier.Identity("officer.g@gmail.com", "Officer"));
+        org.mockito.Mockito.when(google.verify("user-token")).thenReturn(new GoogleTokenVerifier.Identity("somebody@gmail.com", "Somebody"));
+        org.mockito.Mockito.when(google.verify("bad-token")).thenThrow(new org.springframework.security.oauth2.jwt.JwtException("bad"));
+
+        var admin = http.postForEntity("/api/auth/google", Map.of("credential", "admin-token"), Map.class);
+        assertThat(admin.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((Map<?, ?>) admin.getBody().get("user")).get("role")).isEqualTo("ADMIN");
+        assertThat(String.join(";", admin.getHeaders().get(HttpHeaders.SET_COOKIE))).contains("cs_refresh=", "HttpOnly");
+        var officer = http.postForEntity("/api/auth/google", Map.of("credential", "officer-token"), Map.class);
+        assertThat(((Map<?, ?>) officer.getBody().get("user")).get("role")).isEqualTo("LOAN_OFFICER");
+        var user = http.postForEntity("/api/auth/google", Map.of("credential", "user-token"), Map.class);
+        String userToken = (String) user.getBody().get("accessToken");
+        assertThat(((Map<?, ?>) user.getBody().get("user")).get("role")).isEqualTo("APPLICANT");
+        assertThat(http.postForEntity("/api/auth/google", Map.of("credential", "bad-token"), Map.class).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        // an ordinary Google user cannot reach staff endpoints; the admin can
+        assertThat(call(HttpMethod.GET, "/api/audit-logs", userToken, null, Map.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(call(HttpMethod.GET, "/api/audit-logs", (String) admin.getBody().get("accessToken"), null, Map.class).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        // signing in again keeps the same account
+        assertThat(http.postForEntity("/api/auth/google", Map.of("credential", "user-token"), Map.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(jdbc.queryForObject("select count(*) from users where email = 'somebody@gmail.com'", Integer.class)).isEqualTo(1);
     }
 
     @Test
