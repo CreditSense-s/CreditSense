@@ -5,6 +5,9 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/creditsense}
     username: ${DB_USER:creditsense}
     password: ${DB_PASSWORD:creditsense}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}  # keep small (3) on Supabase's free tier
+      minimum-idle: 1
   jpa:
     open-in-view: false
     hibernate:
@@ -49,6 +52,12 @@ creditsense:
   auth:
     refresh-cookie:
       secure: ${AUTH_COOKIE_SECURE:false}  # true in the prod profile (HTTPS)
+  access:
+    # Password sign-in (and self-registration). Off in the prod profile, where people sign in with Google.
+    password-login-enabled: ${PASSWORD_LOGIN_ENABLED:true}
+    google-client-id: ${GOOGLE_CLIENT_ID:}
+    admin-emails: ${ADMIN_EMAILS:}
+    officer-emails: ${OFFICER_EMAILS:}
   login-throttle:
     max-failures-per-account: 5
     max-failures-per-client: 20

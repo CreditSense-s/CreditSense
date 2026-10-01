@@ -100,6 +100,7 @@ public class LoanApplicationService {
         app.setDelinquencyEvents(f.delinquencyEvents());
         app.setDigitalTxnPerMonth(f.digitalTxnPerMonth());
         app.setSubmittedAt(clock.now());
+        app.setConsentAt(clock.now());
         for (var d : req.documents()) {
             KycDocument doc = new KycDocument();
             doc.setDocType(d.type());

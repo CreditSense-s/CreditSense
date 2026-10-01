@@ -2,6 +2,8 @@
 # ProductionSafetyCheck refuses to start this profile with the development secrets.
 
 creditsense:
+  access:
+    password-login-enabled: ${PASSWORD_LOGIN_ENABLED:false}
   seed:
     enabled: ${SEED_DEMO_DATA:false}
   auth:

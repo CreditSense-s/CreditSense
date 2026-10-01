@@ -15,7 +15,9 @@ public record SubmitApplicationRequest(
         @Valid @NotNull BusinessProfile business,
         @Valid @NotNull LoanRequest loan,
         @Valid @NotNull Financials financials,
-        @NotNull @Size(min = 1, max = 10) List<@Valid DocumentInput> documents) {
+        @NotNull @Size(min = 1, max = 10) List<@Valid DocumentInput> documents,
+        @AssertTrue(message = "you must confirm the research-demo notice and consent to storage of what you submit")
+                boolean consent) {
 
     public record BusinessProfile(
             @NotBlank @Size(max = 200) String businessName,

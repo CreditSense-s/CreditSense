@@ -32,6 +32,26 @@ public class AuthController {
         this.cookie = cookie;
     }
 
+    @GetMapping("/options")
+    @Operation(summary = "Which sign-in methods are on, and the Google client id")
+    public AuthOptions options() {
+        return auth.options();
+    }
+
+    @PostMapping("/google")
+    @Operation(summary = "Sign in with a Google ID token; the refresh token is set as an HttpOnly cookie")
+    public SessionResponse google(@Valid @RequestBody GoogleRequest req, HttpServletResponse res) {
+        return start(auth.googleLogin(req.credential()), res);
+    }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Erase the signed-in applicant account and all their applications")
+    public void deleteMe(@AuthenticationPrincipal AuthUser user, HttpServletResponse res) {
+        auth.deleteAccount(user);
+        res.addHeader(HttpHeaders.SET_COOKIE, cookie.clear());
+    }
+
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Register an applicant account and sign in")

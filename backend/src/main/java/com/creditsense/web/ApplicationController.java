@@ -89,7 +89,7 @@ public class ApplicationController {
     }
 
     @PostMapping("/{id}/decision")
-    @PreAuthorize("hasRole('LOAN_OFFICER')")
+    @PreAuthorize("hasAnyRole('LOAN_OFFICER','ADMIN')")
     @Operation(summary = "Approve or reject; a reason is required when overriding the model")
     public Detail decide(@PathVariable Long id, @AuthenticationPrincipal AuthUser user,
             @Valid @RequestBody DecisionRequest req) {

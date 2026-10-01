@@ -136,7 +136,8 @@ class ApplicationFlowIntegrationTest {
                 "documents", List.of(Map.of("type", "PAN", "documentNumber", pan),
                         Map.of("type", "UDYAM", "documentNumber", "UDYAM-TS-02-0012345"),
                         Map.of("type", "ADDRESS_PROOF", "documentNumber", "EB-4471920"),
-                        Map.of("type", "BANK_STATEMENT", "documentNumber", "STMT-88121", "monthsCovered", 12)));
+                        Map.of("type", "BANK_STATEMENT", "documentNumber", "STMT-88121", "monthsCovered", 12)),
+                "consent", true);
     }
 
     // ------------------------------------------------------------------ tests
@@ -280,6 +281,52 @@ class ApplicationFlowIntegrationTest {
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(http.postForEntity("/api/auth/login", Map.of("email", "owner7@it.test", "password", "wrong"),
                 Map.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void anApplicationWithoutConsentIsRejected() {
+        String applicant = register("owner10@it.test");
+        var body = new java.util.HashMap<>(application(gstin("BKTPR4821L"), "BKTPR4821L"));
+        body.put("consent", false);
+        var res = call(HttpMethod.POST, "/api/applications", applicant, body, Map.class);
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(String.valueOf(res.getBody())).contains("consent");
+    }
+
+    @Test
+    void anApplicantCanEraseTheirAccountAndEverythingTheySubmitted() {
+        String applicant = register("owner11@it.test");
+        var submitted = call(HttpMethod.POST, "/api/applications", applicant, application(gstin("CKTPR4821M"), "CKTPR4821M"), Map.class);
+        Number id = (Number) submitted.getBody().get("id");
+        assertThat(jdbc.queryForObject("select count(*) from loan_applications where consent_at is not null and id = ?",
+                Integer.class, id.longValue())).isEqualTo(1);
+
+        assertThat(call(HttpMethod.DELETE, "/api/auth/me", applicant, null, Void.class).getStatusCode())
+                .isEqualTo(HttpStatus.NO_CONTENT);
+
+        assertThat(users.findByEmailIgnoreCase("owner11@it.test")).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from loan_applications where id = ?", Integer.class, id.longValue())).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from risk_assessments where application_id = ?", Integer.class, id.longValue())).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from audit_logs where action = 'ACCOUNT_ERASED' and actor_email = 'owner11@it.test'",
+                Integer.class)).isEqualTo(1);
+        // a still-unexpired access token (15 minutes at most) can read nothing and create nothing for the erased user
+        assertThat(call(HttpMethod.POST, "/api/applications", applicant, application(gstin("DKTPR4821N"), "DKTPR4821N"), Map.class)
+                .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void staffAccountsCannotBeErasedThroughTheApplicantEndpoint() {
+        String officer = login("officer@it.test");
+        assertThat(call(HttpMethod.DELETE, "/api/auth/me", officer, null, Map.class).getStatusCode())
+                .isIn(HttpStatus.BAD_REQUEST, HttpStatus.FORBIDDEN);
+        assertThat(users.findByEmailIgnoreCase("officer@it.test")).isPresent();
+    }
+
+    @Test
+    void theSignInPageCanDiscoverTheOptions() {
+        var res = http.getForEntity("/api/auth/options", Map.class);
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(res.getBody()).containsKeys("googleClientId", "passwordLogin");
     }
 
     @Test

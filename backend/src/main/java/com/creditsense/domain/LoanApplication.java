@@ -35,6 +35,10 @@ public class LoanApplication {
     @Column(nullable = false)
     private LoanPurpose purpose;
 
+    /** When the applicant consented to the research-demo notice and to storage of this submission. */
+    @Column(name = "consent_at")
+    private Instant consentAt;
+
     @Column(name = "tenure_months", nullable = false)
     private int tenureMonths;
 

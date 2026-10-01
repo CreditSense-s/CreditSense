@@ -1,6 +1,7 @@
 package com.creditsense.config;
 
 import com.creditsense.risk.MlProperties;
+import com.creditsense.security.AccessProperties;
 import com.creditsense.security.JwtProperties;
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
@@ -35,10 +36,12 @@ public class ProductionSafetyCheck {
     private final Environment env;
     private final List<String> corsOrigins;
     private final boolean seedEnabled;
+    private final AccessProperties access;
 
     public ProductionSafetyCheck(JwtProperties jwt, MlProperties ml, Environment env,
             @Value("${creditsense.cors.allowed-origins:}") List<String> corsOrigins,
-            @Value("${creditsense.seed.enabled:false}") boolean seedEnabled) {
+            @Value("${creditsense.seed.enabled:false}") boolean seedEnabled, AccessProperties access) {
+        this.access = access;
         this.jwt = jwt;
         this.ml = ml;
         this.env = env;
@@ -76,6 +79,14 @@ public class ProductionSafetyCheck {
         }
         if (corsOrigins.stream().anyMatch(o -> o.strip().equals("*"))) {
             problems.add("CORS_ALLOWED_ORIGINS must list origins explicitly, not '*'");
+        }
+        if (seedEnabled) {
+            problems.add("SEED_DEMO_DATA creates demo accounts with a published password; turn it off");
+        }
+        if (!access.passwordLoginEnabled()) {
+            // Google is then the only way in, so it has to be configured and someone has to be admin.
+            if (!access.googleEnabled()) problems.add("GOOGLE_CLIENT_ID is required when password sign-in is off");
+            if (access.adminEmails().isEmpty()) problems.add("ADMIN_EMAILS must list at least one admin Gmail address");
         }
         return problems;
     }

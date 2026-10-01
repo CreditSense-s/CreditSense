@@ -390,7 +390,7 @@ public class DemoDataSeeder {
                     new Financials(revenues,
                             bd(debtRatio * 12 * monthlyRevenue), bd(outflow * inflowOutflow), bd(outflow),
                             bd(balanceCover * outflow), bd(gstPct), tradeRefs, delinquency, digital),
-                    docs);
+                    docs, true);
         }
     }
 
