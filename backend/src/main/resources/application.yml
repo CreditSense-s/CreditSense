@@ -1,0 +1,29 @@
+spring:
+  application.name: creditsense-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/creditsense}
+    username: ${SPRING_DATASOURCE_USERNAME:creditsense}
+    password: ${SPRING_DATASOURCE_PASSWORD:creditsense}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:3}
+      minimum-idle: 1
+      connection-timeout: 20000
+      max-lifetime: 600000
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: validate
+  flyway.enabled: true
+server:
+  error.include-message: never
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+ml:
+  service-url: ${ML_SERVICE_URL:http://localhost:8000}
+  api-key: ${ML_API_KEY:}
+jwt.secret: ${JWT_SECRET:local-development-secret-must-be-at-least-32-bytes}
+# Demo mode = published demo accounts + password sign-in. Never enable it on a public deployment.
+app.demo-mode: ${APP_DEMO_MODE:false}
+google.client-id: ${GOOGLE_CLIENT_ID:}
+auth:
+  admin-emails: ${ADMIN_EMAILS:}
+  officer-emails: ${OFFICER_EMAILS:}

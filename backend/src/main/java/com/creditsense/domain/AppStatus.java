@@ -1,0 +1,1 @@
+package com.creditsense.domain; public enum AppStatus { SUBMITTED, COMPLIANCE_REVIEW, COMPLIANCE_FAILED, RISK_SCORED, APPROVED, REJECTED, MANUAL_REVIEW }

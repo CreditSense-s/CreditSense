@@ -1,0 +1,3 @@
+package com.creditsense.domain;
+import jakarta.persistence.*; import java.time.Instant; import java.util.UUID;
+@Entity @Table(name="compliance_checks") public class ComplianceCheck { @Id private UUID id=UUID.randomUUID(); @ManyToOne @JoinColumn(name="application_id") private LoanApplication application; @Column(name="check_type") private String checkType; private boolean passed; private String reason; @Column(name="created_at") private Instant createdAt=Instant.now(); public ComplianceCheck(){} public ComplianceCheck(LoanApplication a,String t,boolean p,String r){application=a;checkType=t;passed=p;reason=r;} public String getCheckType(){return checkType;} public boolean isPassed(){return passed;} public String getReason(){return reason;} }

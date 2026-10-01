@@ -1,0 +1,10 @@
+.env
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+**/target/
+**/__pycache__/
+**/.pytest_cache/
+ml-service/data/*.csv
+ml-service/models/*.joblib
+ml-service/models/*.json
