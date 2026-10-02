@@ -11,6 +11,10 @@ state change is written to an append-only audit trail.
 
 ## Live demo
 
+> **Please wait 3 to 4 minutes on your first visit.** The free Render servers go to sleep when idle and take about 3 to 4
+> minutes to start. The sign-in box shows "Server waking up" and continues by itself; there is nothing to click. Do not refresh
+> repeatedly.
+
 | What | Where | Hosted on |
 |---|---|---|
 | Web app | https://creditsense-seven.vercel.app | Vercel |
