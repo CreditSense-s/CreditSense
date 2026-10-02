@@ -9,7 +9,28 @@ never shown to anyone. Loan officers decide, with a mandatory reason when they o
 watch the portfolio and the model's live performance and run the champion/challenger retraining loop. Every
 state change is written to an append-only audit trail.
 
-Want it online? [DEPLOY.md](DEPLOY.md) covers Google sign-in, Supabase, Render and Vercel.
+## Live demo
+
+| What | Where | Hosted on |
+|---|---|---|
+| Web app | https://creditsense-seven.vercel.app | Vercel |
+| API | https://creditsense-api-asn0.onrender.com (`/actuator/health`, `/api/auth/options`) | Render |
+| ML service | https://creditsense-ml.onrender.com (`/health`) | Render |
+| Database | PostgreSQL | Supabase |
+| Sign-in | Google (admin: `siddhusiddhu1712@gmail.com`) | Google Cloud OAuth |
+
+This is a **research demo**: the risk score comes from a simulated model trained on synthetic data and is not a real lending
+decision. Please do not enter real PAN, GSTIN or other personal details; use made-up values (for example PAN `AKTPR4821K`,
+GSTIN `36AKTPR4821K1ZH`, Udyam `UDYAM-TS-02-0012345`). The in-app privacy notice is at `/privacy`, and applicants can erase
+their data with **Delete my data**.
+
+All three hosts are on free plans. The API and ML service **sleep after about 15 minutes idle**; the first visit afterwards shows
+"Server waking up" for a few minutes, and the first application scored after a long idle may land in manual review until the
+ML service is awake (open its `/health` link first before a demo). A free Supabase project pauses after a week of no activity.
+
+How it was deployed, and how to redeploy, is in [DEPLOY.md](DEPLOY.md): Google sign-in, Supabase, Render (`render.yaml`) and
+Vercel (`frontend/vercel.json`). The website is deployed with the Vercel CLI (`npx vercel --prod` from `frontend/`); the API and ML
+service redeploy from Render when this branch is pushed.
 
 ## Quick start
 
