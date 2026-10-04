@@ -77,8 +77,14 @@ function View({ app }: { app: Detail }) {
         <div className="space-y-5">
           {app.status === 'MANUAL_REVIEW' && (
             <Card className="ring-2 ring-amber">
-              <p className="text-sm font-medium">Manual review required</p>
+              <p className="text-sm font-medium">{app.awaitingModel ? 'Waiting for the risk model' : 'Manual review required'}</p>
               <p className="text-sm text-muted">{app.manualReviewReason}</p>
+              {app.awaitingModel && (
+                <p role="status" className="mt-2 text-sm">
+                  The model server was asleep. It is being woken up and this application is scored automatically when it
+                  answers, usually within two minutes; this page updates by itself. You can also decide without a score.
+                </p>
+              )}
             </Card>
           )}
           {r ? (

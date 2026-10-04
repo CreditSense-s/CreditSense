@@ -51,7 +51,11 @@ A free Supabase project pauses after a week without activity; unpause it from th
 3. If the services get URLs other than `creditsense-api.onrender.com` / `creditsense-ml.onrender.com`, update `ML_BASE_URL` on the API
    and the `destination` in `frontend/vercel.json`.
 4. Free services sleep after about 15 minutes idle. The first visit afterwards takes a few minutes; the sign-in page shows
-   "Server waking up" and continues by itself. Add officers in `OFFICER_EMAILS` any time (comma-separated).
+   "Server waking up" and continues by itself. Render wakes a sleeping service only for a browser visit, not for the API's
+   requests, so the site opens `https://creditsense-ml.onrender.com/health` in a hidden frame on every page (every 30 s while the
+   model starts, then every 5 minutes). Applications submitted before the model answers are scored automatically once it does.
+   If the ML service has a different address, change it in `frontend/src/lib/config.ts` and in `frame-src` in `frontend/vercel.json`.
+   Add officers in `OFFICER_EMAILS` any time (comma-separated).
 
 ## 4. Vercel (website)
 

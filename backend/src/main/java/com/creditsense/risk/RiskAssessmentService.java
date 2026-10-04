@@ -11,6 +11,7 @@ import com.creditsense.domain.RiskAssessment;
 import com.creditsense.domain.RiskBand;
 import com.creditsense.domain.ShapContribution;
 import com.creditsense.repo.RiskAssessmentRepository;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.LinkedHashMap;
@@ -27,6 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class RiskAssessmentService {
 
     public record Result(boolean scored, RiskAssessment assessment, String manualReviewReason) {}
+
+    /** Start of the manual-review reason when the model could not be reached (as opposed to a rejected score). */
+    public static final String MODEL_UNAVAILABLE = "Risk model unavailable: ";
 
     private final MlClient ml;
     private final ExplanationContract contract;
@@ -64,7 +68,7 @@ public class RiskAssessmentService {
         } catch (MlUnavailableException | ExplanationContractViolation e) {
             String reason = e instanceof ExplanationContractViolation
                     ? "Score rejected: " + e.getMessage()
-                    : "Risk model unavailable: " + e.getMessage();
+                    : MODEL_UNAVAILABLE + e.getMessage();
             app.setStatus(ApplicationStatus.MANUAL_REVIEW);
             app.setManualReviewReason(truncate(reason, 500));
             app.setModelRecommendation(null);
@@ -101,6 +105,19 @@ public class RiskAssessmentService {
         after.put("recommendation", recommendation);
         audit.record(actor, "RISK_ASSESSED", "LoanApplication", app.getId(), Map.of("status", before), after);
         return new Result(true, ra, null);
+    }
+
+    /** Waiting in manual review only because the model could not be reached, so a score can still follow. */
+    public static boolean awaitingModel(LoanApplication app) {
+        return app.getStatus() == ApplicationStatus.MANUAL_REVIEW && app.getManualReviewReason() != null
+                && app.getManualReviewReason().startsWith(MODEL_UNAVAILABLE);
+    }
+
+    /** See {@code LoanApplicationService#reconnectModelIfBack}. */
+    public void reconnectModelIfBack() {
+        if (ml.circuitState() != CircuitBreaker.State.CLOSED) {
+            ml.reconnectIfUp();
+        }
     }
 
     private static String truncate(String s, int max) {

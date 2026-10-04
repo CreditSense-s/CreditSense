@@ -20,6 +20,8 @@ public interface LoanApplicationRepository
 
     List<LoanApplication> findByStatus(ApplicationStatus status);
 
+    List<LoanApplication> findByStatusAndManualReviewReasonStartingWith(ApplicationStatus status, String prefix);
+
     long countByStatus(ApplicationStatus status);
 
     @Query("select coalesce(max(a.id), 0) from LoanApplication a")

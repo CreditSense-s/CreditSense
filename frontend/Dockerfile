@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
+# The bundled ML service never sleeps, so the browser-side wake-up used on free hosts is off here
+ENV VITE_ML_WAKE_URL=""
 RUN npm run build
 
 FROM nginx:1.27-alpine

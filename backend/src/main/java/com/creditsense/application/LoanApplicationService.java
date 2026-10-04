@@ -145,6 +145,15 @@ public class LoanApplicationService {
         return risk.assess(load(id), actor);
     }
 
+    /**
+     * Before an officer's Re-score: if earlier calls opened the circuit breaker (typically while the ML
+     * service was asleep) and the service now answers, close the breaker so the score is attempted at once.
+     * Runs outside a transaction so no database connection is held during the health check.
+     */
+    public void reconnectModelIfBack() {
+        risk.reconnectModelIfBack();
+    }
+
     // ------------------------------------------------------------------ decision
     @Transactional
     public LoanApplication decide(Long id, AuthUser officer, DecisionRequest req) {
@@ -196,7 +205,8 @@ public class LoanApplicationService {
         return new Detail(a.getId(), a.getReference(), a.getStatus(), a.getAmountRequested(), a.getPurpose(),
                 a.getTenureMonths(), a.getSubmittedAt(), Business.of(a.getApplicant()), Financials.of(a),
                 a.getDocuments().stream().map(Document::of).toList(), a.getKycScore(), complianceChecks, riskDto,
-                a.getModelRecommendation(), a.getManualReviewReason(), decision, a.getOutcome(),
+                a.getModelRecommendation(), a.getManualReviewReason(), RiskAssessmentService.awaitingModel(a), decision,
+                a.getOutcome(),
                 a.getOutcomeRecordedAt(), timeline);
     }
 

@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.creditsense.risk.MlClient;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -76,6 +78,7 @@ class ApplicationFlowIntegrationTest {
         r.add("creditsense.jwt.secret", () -> "integration-test-secret-at-least-32-bytes!");
         r.add("creditsense.access.admin-emails", () -> "Owner.Admin@gmail.com");
         r.add("creditsense.access.officer-emails", () -> "officer.g@gmail.com");
+        r.add("creditsense.ml.outage-check-interval", () -> "PT1S");
     }
 
     @AfterAll
@@ -89,6 +92,7 @@ class ApplicationFlowIntegrationTest {
     @Autowired UserRepository users;
     @Autowired PasswordEncoder encoder;
     @Autowired JdbcTemplate jdbc;
+    @Autowired MlClient ml;
     @Autowired com.creditsense.security.RefreshTokenService refreshTokens;
 
     @BeforeEach
@@ -214,6 +218,46 @@ class ApplicationFlowIntegrationTest {
                 Map.class).getBody();
         assertThat(app.get("status")).isEqualTo("MANUAL_REVIEW");
         assertThat((String) app.get("manualReviewReason")).startsWith("Risk model unavailable");
+    }
+
+    @Test
+    void reScoreWorksAsSoonAsTheModelIsBackEvenIfTheCircuitBreakerOpened() {
+        ML_STATUS.set(503); // the model is asleep or starting
+        String applicant = register("owner4b@it.test");
+        Map<?, ?> app = call(HttpMethod.POST, "/api/applications", applicant, application(gstin("CQRFT5679A"), "CQRFT5679A"),
+                Map.class).getBody();
+        assertThat(app.get("status")).isEqualTo("MANUAL_REVIEW");
+        assertThat(app.get("awaitingModel")).isEqualTo(true);
+        String officer = login("officer@it.test");
+        String rescore = "/api/applications/" + app.get("id") + "/risk-assessment";
+        call(HttpMethod.POST, rescore, officer, null, Map.class);
+        assertThat(ml.circuitState()).isEqualTo(CircuitBreaker.State.OPEN);
+
+        ML_STATUS.set(200); // the model is up again, while the breaker would still fail fast for 30 s
+        Map<?, ?> scored = call(HttpMethod.POST, rescore, officer, null, Map.class).getBody();
+        assertThat(scored.get("status")).isEqualTo("RISK_SCORED");
+        assertThat(ml.circuitState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    }
+
+    @Test
+    void anApplicationThatWaitedForASleepingModelIsScoredOnItsOwnOnceTheModelAnswers() throws Exception {
+        ML_STATUS.set(503); // asleep
+        String applicant = register("owner4c@it.test");
+        Map<?, ?> app = call(HttpMethod.POST, "/api/applications", applicant, application(gstin("CQRFT5680B"), "CQRFT5680B"),
+                Map.class).getBody();
+        assertThat(app.get("status")).isEqualTo("MANUAL_REVIEW");
+        assertThat(app.get("awaitingModel")).isEqualTo(true);
+
+        ML_STATUS.set(200); // woken up, with nobody clicking Re-score
+        String url = "/api/applications/" + app.get("id");
+        Map<?, ?> now = app;
+        for (int i = 0; i < 60 && !"RISK_SCORED".equals(now.get("status")); i++) {
+            Thread.sleep(500);
+            now = call(HttpMethod.GET, url, applicant, null, Map.class).getBody();
+        }
+        assertThat(now.get("status")).isEqualTo("RISK_SCORED");
+        assertThat(now.get("awaitingModel")).isEqualTo(false);
+        assertThat(now.get("riskAssessment")).isNotNull();
     }
 
     @Test

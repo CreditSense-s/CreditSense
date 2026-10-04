@@ -106,6 +106,8 @@ export interface Detail {
   } | null
   modelRecommendation: Decision | null
   manualReviewReason: string | null
+  /** In manual review only because the model was asleep; the server scores it once the model answers. */
+  awaitingModel: boolean
   decision: { decision: Decision; reason: string | null; override: boolean; decidedBy: string | null; decidedAt: string } | null
   outcome: 'REPAID' | 'DEFAULTED' | null
   outcomeRecordedAt: string | null

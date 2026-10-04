@@ -18,6 +18,8 @@ export const useApplication = (id: number | undefined) =>
     queryKey: keys.detail(id ?? -1),
     enabled: id != null && !Number.isNaN(id),
     queryFn: async () => (await api.get<Detail>(`/applications/${id}`)).data,
+    // waiting for a sleeping model: the server scores it as soon as the model answers, so keep looking
+    refetchInterval: (query) => (query.state.data?.awaitingModel ? 10_000 : false),
   })
 
 export interface QueueFilters {

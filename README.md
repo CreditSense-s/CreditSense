@@ -29,8 +29,11 @@ GSTIN `36AKTPR4821K1ZH`, Udyam `UDYAM-TS-02-0012345`). The in-app privacy notice
 their data with **Delete my data**.
 
 All three hosts are on free plans. The API and ML service **sleep after about 15 minutes idle**; the first visit afterwards shows
-"Server waking up" for a few minutes, and the first application scored after a long idle may land in manual review until the
-ML service is awake (open its `/health` link first before a demo). A free Supabase project pauses after a week of no activity.
+"Server waking up" for a few minutes. Render starts a sleeping service only for a visit from a browser, not for a request from
+the API, so every page of the site opens the ML service's `/health` link in a hidden frame: the model wakes while the visitor
+signs in and stays awake while the site is open. An application submitted before the model is up waits in manual review and is
+scored automatically as soon as the model answers, usually within two minutes; the page updates by itself. A free Supabase project
+pauses after a week of no activity.
 
 How it was deployed, and how to redeploy, is in [DEPLOY.md](DEPLOY.md): Google sign-in, Supabase, Render (`render.yaml`) and
 Vercel (`frontend/vercel.json`). The website is deployed with the Vercel CLI (`npx vercel --prod` from `frontend/`); the API and ML

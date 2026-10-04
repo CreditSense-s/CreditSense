@@ -86,7 +86,8 @@ class MlClientTest {
         for (int i = 0; i < 3; i++) server.enqueue(ok().setBodyDelay(2, TimeUnit.SECONDS));
         long started = System.nanoTime();
         assertThatThrownBy(() -> client.predict(Map.of()))
-                .isInstanceOf(MlUnavailableException.class).hasMessageContaining("timed out");
+                .isInstanceOf(MlUnavailableException.class).hasMessageContaining("timed out")
+                .hasMessageContaining("scored once it answers");
         // one attempt only: a timeout is not retried, so the caller waits one time budget, not three
         assertThat(server.getRequestCount()).isEqualTo(1);
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofMillis(1500));
@@ -102,6 +103,41 @@ class MlClientTest {
         int before = server.getRequestCount();
         assertThatThrownBy(() -> client.predict(Map.of())).hasMessageContaining("circuit breaker open");
         assertThat(server.getRequestCount()).isEqualTo(before); // no call reached the service
+    }
+
+    @Test
+    void aBadRequestIsNotReportedAsAnOutage() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+        assertThat(client.reconnectIfUp()).isTrue();
+        server.enqueue(new MockResponse().setResponseCode(422));
+        assertThatThrownBy(() -> client.predict(Map.of())).isInstanceOf(MlUnavailableException.class)
+                .hasMessageNotContaining("starting up");
+        assertThat(client.inOutage()).isFalse();
+    }
+
+    @Test
+    void reconnectClosesAnOpenCircuitOnceTheServiceAnswersAgain() throws Exception {
+        // 3 attempts, then 1 more opens the breaker (window of 4) and the remaining retry is refused
+        for (int i = 0; i < 4; i++) server.enqueue(new MockResponse().setResponseCode(503));
+        for (int i = 0; i < 2; i++) {
+            assertThatThrownBy(() -> client.predict(Map.of())).isInstanceOf(MlUnavailableException.class);
+        }
+        assertThat(client.circuitState()).isEqualTo(CircuitBreaker.State.OPEN);
+        assertThat(server.getRequestCount()).isEqualTo(4);
+        assertThat(client.inOutage()).isTrue();
+
+        server.enqueue(new MockResponse().setResponseCode(503)); // still starting: the breaker stays open
+        assertThat(client.reconnectIfUp()).isFalse();
+        assertThat(client.circuitState()).isEqualTo(CircuitBreaker.State.OPEN);
+
+        server.enqueue(new MockResponse().setResponseCode(200)); // up: the next score is attempted at once
+        assertThat(client.reconnectIfUp()).isTrue();
+        assertThat(client.circuitState()).isEqualTo(CircuitBreaker.State.CLOSED);
+        assertThat(client.inOutage()).isFalse();
+        server.enqueue(ok());
+        assertThat(client.predict(Map.of()).probabilityOfDefault()).isEqualTo(0.08);
+        for (int i = 0; i < 4; i++) server.takeRequest();
+        assertThat(server.takeRequest().getPath()).isEqualTo("/health");
     }
 
     @Test

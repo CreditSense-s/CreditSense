@@ -92,7 +92,9 @@ public final class ApplicationDtos {
             Long id, String reference, ApplicationStatus status, BigDecimal amountRequested, LoanPurpose purpose,
             int tenureMonths, Instant submittedAt, Business business, Financials financials, List<Document> documents,
             BigDecimal kycScore, List<Check> complianceChecks, Risk riskAssessment, Decision modelRecommendation,
-            String manualReviewReason, DecisionInfo decision, Outcome outcome, Instant outcomeRecordedAt,
+            String manualReviewReason,
+            /** In manual review only because the model was unreachable; it is scored as soon as the model answers. */
+            boolean awaitingModel, DecisionInfo decision, Outcome outcome, Instant outcomeRecordedAt,
             /** Audit trail of this application; returned to staff only. */
             List<TimelineEntry> timeline) {}
 }

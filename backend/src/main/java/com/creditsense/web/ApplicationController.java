@@ -84,6 +84,7 @@ public class ApplicationController {
     @PreAuthorize("hasAnyRole('LOAN_OFFICER','ADMIN')")
     @Operation(summary = "Score with the ML service; falls back to manual review if it is unavailable")
     public Detail riskAssessment(@PathVariable Long id, @AuthenticationPrincipal AuthUser user) {
+        service.reconnectModelIfBack();
         service.runRisk(id, user.actor());
         return service.detail(id, user);
     }

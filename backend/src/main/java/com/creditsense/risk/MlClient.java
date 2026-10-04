@@ -13,6 +13,8 @@ import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -31,12 +33,16 @@ public class MlClient {
 
     private static final Logger log = LoggerFactory.getLogger(MlClient.class);
     public static final String INSTANCE = "mlService";
+    /** Failures that mean the service could not be reached: asleep, starting or restarting rather than broken. */
+    private static final Set<String> TRANSIENT = Set.of("circuit breaker open", "timed out", "ConnectException",
+            "PrematureCloseException", "UnknownHostException", "BadGateway", "ServiceUnavailable", "GatewayTimeout");
 
     private final WebClient web;
     private final MlProperties props;
     private final CircuitBreaker circuitBreaker;
     private final Retry retry;
     private final TimeLimiter timeLimiter;
+    private final AtomicBoolean outage = new AtomicBoolean(true);
 
     public MlClient(WebClient.Builder builder, MlProperties props, CircuitBreakerRegistry cbs, RetryRegistry retries,
             TimeLimiterRegistry limiters) {
@@ -98,6 +104,29 @@ public class MlClient {
         return circuitBreaker.getState();
     }
 
+    /** True from start-up until the service first answers, and again after a call fails to reach it. */
+    public boolean inOutage() {
+        return outage.get();
+    }
+
+    /**
+     * Checks whether the ML service answers. If it does, any outage is over: a circuit breaker that opened
+     * during it (for example while a free-tier service was asleep) is closed, so the next score is attempted
+     * at once instead of failing fast for the rest of the open period.
+     */
+    public boolean reconnectIfUp() {
+        if (!healthy()) {
+            return false;
+        }
+        CircuitBreaker.State state = circuitBreaker.getState();
+        if (state == CircuitBreaker.State.OPEN || state == CircuitBreaker.State.HALF_OPEN) {
+            log.info("ML service answers again; closing the circuit breaker (was {})", state);
+            circuitBreaker.transitionToClosedState();
+        }
+        outage.set(false);
+        return true;
+    }
+
     private <T> T guarded(String what, Mono<T> call) {
         try {
             return call.transformDeferred(TimeLimiterOperator.of(timeLimiter))
@@ -106,7 +135,13 @@ public class MlClient {
                     .block();
         } catch (RuntimeException e) {
             log.warn("ML service {} failed: {}", what, e.toString());
-            throw new MlUnavailableException("ML service unavailable (" + describe(e) + ")", e);
+            String cause = describe(e);
+            boolean unreachable = TRANSIENT.contains(cause);
+            if (unreachable) {
+                outage.set(true);
+            }
+            String hint = unreachable ? "; it may be starting up, and the application is scored once it answers" : "";
+            throw new MlUnavailableException("ML service unavailable (" + cause + hint + ")", e);
         }
     }
 

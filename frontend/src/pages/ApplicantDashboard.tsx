@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { ArrowRight, Info } from 'lucide-react'
+import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Documents, PipelineStepper, ScoreBlock } from '../components/ApplicationParts'
 import { ComplianceChecklist } from '../components/ComplianceChecklist'
@@ -9,7 +11,7 @@ import { Button, Card, Empty, ErrorState, Loading, PageHeader } from '../compone
 import { featureMeta } from '../lib/features'
 import { date, lakh } from '../lib/format'
 import { CHECK_LABEL, purposeLabel } from '../lib/labels'
-import { useApplication, useMyApplications } from '../lib/queries'
+import { keys, useApplication, useMyApplications } from '../lib/queries'
 import type { Detail } from '../lib/types'
 
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
@@ -19,6 +21,11 @@ export function ApplicantDashboard() {
   const [params, setParams] = useSearchParams()
   const focus = Number(params.get('focus')) || mine.data?.[0]?.id
   const detail = useApplication(focus)
+  const queryClient = useQueryClient()
+  const focusedStatus = detail.data?.status
+  useEffect(() => {
+    if (focusedStatus) queryClient.invalidateQueries({ queryKey: keys.mine })
+  }, [focusedStatus, queryClient])
 
   return (
     <>
@@ -115,9 +122,11 @@ function ApplicationView({ app }: { app: Detail }) {
 
       {app.status === 'MANUAL_REVIEW' && (
         <Card>
-          <p className="flex items-start gap-2 text-sm">
+          <p role="status" className="flex items-start gap-2 text-sm">
             <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-amber" />
-            Your application passed the compliance checks and is with an underwriter for a manual review. No action is needed from you.
+            {app.awaitingModel
+              ? 'Your application passed the compliance checks. The risk model is starting up (the free demo server sleeps when nobody uses it); your score will appear here by itself, usually within two minutes. You can leave this page open.'
+              : 'Your application passed the compliance checks and is with an underwriter for a manual review. No action is needed from you.'}
           </p>
         </Card>
       )}
