@@ -15,6 +15,27 @@ state change is written to an append-only audit trail.
 > minutes to start. The sign-in box shows "Server waking up" and continues by itself; there is nothing to click. Do not refresh
 > repeatedly.
 
+### Starting the servers before a demo (ML service and API)
+
+The ML service (the model) and the API both sleep after about 15 minutes without a visit. Wake them in this order:
+
+1. Open the ML service health link: https://creditsense-ml.onrender.com/health. Render only wakes a sleeping service for a
+   visit from a browser, so this has to be a real page open in a browser tab, not a request from a script.
+2. Wait until that page shows a small JSON answer such as `{"status":"UP","model_version":"..."}`. This takes **3 to 4
+   minutes** from a cold start. A blank page, a Render "starting" screen or `model not loaded` means it is still waking; do
+   not close it or refresh over and over.
+3. Open the API health link: https://creditsense-api-asn0.onrender.com/actuator/health and wait for `"status":"UP"`
+   (about 1 to 2 minutes).
+4. Open the web app, https://creditsense-seven.vercel.app, and sign in with Google.
+
+Every page of the web app also opens the ML health link in a hidden frame (every 30 seconds while the model is starting, then
+every 5 minutes), so once the site is open the model stays awake. If someone submits an application before the model has
+answered, it waits in manual review with the reason "Risk model unavailable" and is **scored automatically as soon as the
+model answers**, usually within two minutes. The application page updates by itself, and nobody needs to click anything.
+
+If the model still does not answer after 10 minutes, open the two services on https://dashboard.render.com, check that each
+says **Live**, and read the latest lines of the service log.
+
 | What | Where | Hosted on |
 |---|---|---|
 | Web app | https://creditsense-seven.vercel.app | Vercel |
@@ -36,8 +57,21 @@ scored automatically as soon as the model answers, usually within two minutes; t
 pauses after a week of no activity.
 
 How it was deployed, and how to redeploy, is in [DEPLOY.md](DEPLOY.md): Google sign-in, Supabase, Render (`render.yaml`) and
-Vercel (`frontend/vercel.json`). The website is deployed with the Vercel CLI (`npx vercel --prod` from `frontend/`); the API and ML
-service redeploy from Render when this branch is pushed.
+Vercel (`frontend/vercel.json`).
+
+### Updating the live site
+
+Work in the project folder `D:\CreditSense\CreditSense` (branch `claude/creditsense-uml-diagrams-1vqlyx`). Commits are made as
+**Siddardha-CH**.
+
+| Step | What to do | What happens |
+|---|---|---|
+| 1. Commit | `git add -A` then `git commit -m "what changed"` | Saved locally |
+| 2. Push | `git push origin claude/creditsense-uml-diagrams-1vqlyx` | GitHub gets the code. Render rebuilds the **API and ML service** by itself (about 10 minutes). Put `[skip render]` in the commit message to skip the rebuild for documentation-only changes. |
+| 3. Website | In `frontend/`: `npx vercel@latest deploy --prod --yes` (run `npx vercel@latest login` first if it says "Not authorized") | The **web app** is published to https://creditsense-seven.vercel.app. Vercel is not linked to Git, so this step is manual. |
+| 4. Check | Follow "Starting the servers before a demo" above | Confirms the model and API are live |
+
+In Windows PowerShell 5.1 run the commands on separate lines: `&&` does not work there.
 
 ## Quick start
 
@@ -46,8 +80,9 @@ A laptop with 8 GB RAM and about 10 GB of free disk is enough: the running syste
 On Windows, let Docker Desktop enable WSL 2 when it asks, then restart.
 
 ```bash
-git clone https://github.com/5ai711/CreditSense.git
+git clone https://github.com/CreditSense-s/CreditSense.git
 cd CreditSense
+git checkout claude/creditsense-uml-diagrams-1vqlyx
 docker compose up --build
 ```
 
